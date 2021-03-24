@@ -46,6 +46,12 @@ impl Route {
             .cloned()
             .expect("Route::recipient failed on invalid Route!")
     }
+
+    /// Get all addresses
+    pub fn inner(&self) -> Vec<Address> {
+        let mut inner = self.inner.clone();
+        inner.make_contiguous().to_vec()
+    }
 }
 
 impl Display for Route {
