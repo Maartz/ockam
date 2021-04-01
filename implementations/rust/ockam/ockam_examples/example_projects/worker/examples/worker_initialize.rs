@@ -4,7 +4,6 @@ struct Nothing;
 
 #[async_worker]
 impl Worker for Nothing {
-    type Message = ();
     type Context = Context;
 
     async fn initialize(&mut self, _context: &mut Self::Context) -> Result<()> {

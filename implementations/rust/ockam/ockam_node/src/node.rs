@@ -9,7 +9,6 @@ pub struct App;
 
 impl ockam_core::Worker for App {
     type Context = Context;
-    type Message = (); // This message type is never used
 }
 
 pub fn start_node() -> (Context, Executor) {
@@ -25,7 +24,7 @@ pub fn start_node() -> (Context, Executor) {
     let ctx = root_app_context(exe.runtime(), &addr, exe.sender());
 
     // Build a mailbox worker to buffer messages
-    let sender = relay::build_root::<App, _>(exe.runtime(), &ctx.mailbox);
+    let sender = relay::build_root::<App>(exe.runtime(), &ctx.mailbox);
 
     // Register this mailbox handle with the executor
     exe.initialize_system("app", sender);

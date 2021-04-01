@@ -72,58 +72,51 @@ pub enum RelayPayload {
     PreRouter(Vec<u8>, Route),
 }
 
-pub struct Relay<W, M>
+pub struct Relay<W>
 where
     W: Worker<Context = Context>,
-    M: Message,
 {
     worker: W,
     ctx: Context,
-    _phantom: PhantomData<M>,
 }
 
-impl<W, M> Relay<W, M>
+impl<W> Relay<W>
 where
-    W: Worker<Context = Context, Message = M>,
-    M: Message + Send + 'static,
+    W: Worker<Context = Context>,
 {
     pub fn new(worker: W, ctx: Context) -> Self {
-        Self {
-            worker,
-            ctx,
-            _phantom: PhantomData,
-        }
+        Self { worker, ctx }
     }
 
-    /// Convenience function to handle an incoming direct message
-    #[inline]
-    fn handle_direct(&mut self, msg: TransportMessage) -> Result<(M, Route)> {
-        let TransportMessage {
-            payload, return_, ..
-        } = msg;
+//     /// Convenience function to handle an incoming direct message
+//     #[inline]
+//     fn handle_direct(&mut self, msg: TransportMessage) -> Result<(M, Route)> {
+//         let TransportMessage {
+//             payload, return_, ..
+//         } = msg;
 
-        parser::message::<M>(payload)
-            .map_err(|e| {
-                error!(
-                    "Failed to decode message payload for worker {}",
-                    self.ctx.address()
-                );
-                e.into()
-            })
-            .map(|m| (m, return_.clone()))
-    }
+//         parser::message::<M>(payload)
+//             .map_err(|e| {
+//                 error!(
+//                     "Failed to decode message payload for worker {}",
+//                     self.ctx.address()
+//                 );
+//                 e.into()
+//             })
+//             .map(|m| (m, return_.clone()))
+//     }
 
-    #[inline]
-    fn handle_pre_router(&mut self, msg: Vec<u8>) -> Result<M> {
-        M::decode(&msg).map_err(|e| {
-            error!(
-                "Failed to decode wrapped router message for worker {}.  \
-Is your router accepting the correct message type? (ockam_core::RouterMessage)",
-                self.ctx.address()
-            );
-            e.into()
-        })
-    }
+//     #[inline]
+//     fn handle_pre_router(&mut self, msg: Vec<u8>) -> Result<M> {
+//         M::decode(&msg).map_err(|e| {
+//             error!(
+//                 "Failed to decode wrapped router message for worker {}.  \
+// Is your router accepting the correct message type? (ockam_core::RouterMessage)",
+//                 self.ctx.address()
+//             );
+//             e.into()
+//         })
+//     }
 
     async fn run(mut self) {
         self.worker.initialize(&mut self.ctx).await.unwrap();
@@ -136,25 +129,19 @@ Is your router accepting the correct message type? (ockam_core::RouterMessage)",
             // wrap state.  Messages addressed to a router will be of
             // type `RouterMessage`, while generic userspace workers
             // can provide any type they want.
-            let (msg, return_) = match (|data| -> Result<(M, Route)> {
+            let msg = (|data| -> Result<TransportMessage> {
                 Ok(match data {
-                    RelayPayload::Direct(trans_msg) => self.handle_direct(trans_msg)?,
+                    RelayPayload::Direct(trans_msg) => trans_msg, //self.handle_direct(trans_msg)?,
                     RelayPayload::PreRouter(enc_msg, route) => {
-                        self.handle_pre_router(enc_msg).map(|m| (m, route))?
+                        panic!()
+                        // self.handle_pre_router(enc_msg).map(|m| (m, route))?
                     }
                 })
             })(data)
-            {
-                Ok((msg, route)) => (msg, route),
-                Err(_) => continue, // Handler functions must log
-            };
-
-            // Wrap the user message in a `Routed` to provide return
-            // route information via a composition side-channel
-            let routed = Routed::new(msg, return_, onward);
+            .unwrap();
 
             // Call the worker handle function
-            match self.worker.handle_message(&mut self.ctx, routed).await {
+            match self.worker.handle_message(&mut self.ctx, msg).await {
                 Ok(()) => {}
                 Err(e) => {
                     error!(
@@ -186,16 +173,15 @@ Is your router accepting the correct message type? (ockam_core::RouterMessage)",
 }
 
 /// Build and spawn a new worker relay, returning a send handle to it
-pub(crate) fn build<W, M>(rt: &Runtime, worker: W, ctx: Context) -> Sender<RelayMessage>
+pub(crate) fn build<W>(rt: &Runtime, worker: W, ctx: Context) -> Sender<RelayMessage>
 where
-    W: Worker<Context = Context, Message = M>,
-    M: Message + Send + 'static,
+    W: Worker<Context = Context>,
 {
     let (tx, rx) = channel(32);
     let mb_tx = ctx.mailbox.sender();
-    let relay = Relay::<W, M>::new(worker, ctx);
+    let relay = Relay::<W>::new(worker, ctx);
 
-    rt.spawn(Relay::<W, M>::run_mailbox(rx, mb_tx));
+    rt.spawn(Relay::<W>::run_mailbox(rx, mb_tx));
     rt.spawn(relay.run());
     tx
 }
@@ -205,14 +191,13 @@ where
 /// The root relay is different from normal worker relays because its
 /// message inbox is never automatically run, and instead needs to be
 /// polled via a `receive()` call.
-pub(crate) fn build_root<W, M>(rt: Arc<Runtime>, mailbox: &Mailbox) -> Sender<RelayMessage>
+pub(crate) fn build_root<W>(rt: Arc<Runtime>, mailbox: &Mailbox) -> Sender<RelayMessage>
 where
-    W: Worker<Context = Context, Message = M>,
-    M: Message + Send + 'static,
+    W: Worker<Context = Context>,
 {
     let (tx, rx) = channel(32);
 
     let mb_tx = mailbox.sender();
-    rt.spawn(Relay::<W, M>::run_mailbox(rx, mb_tx));
+    rt.spawn(Relay::<W>::run_mailbox(rx, mb_tx));
     tx
 }

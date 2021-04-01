@@ -1,4 +1,4 @@
-use crate::{lib::Vec, Route};
+use crate::{lib::Vec, Message, Result, Route};
 use serde::{Deserialize, Serialize};
 
 /// A generic transport message
@@ -31,5 +31,10 @@ impl TransportMessage {
             return_: Route::new().into(),
             payload,
         }
+    }
+
+    /// Type deserialize this message payload
+    pub fn payload<M: Message>(&self) -> Result<M> {
+        M::decode(&self.payload)
     }
 }

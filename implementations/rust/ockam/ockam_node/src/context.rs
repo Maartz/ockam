@@ -53,11 +53,10 @@ impl Context {
     }
 
     /// Start a new worker handle at [`Address`](ockam_core::Address)
-    pub async fn start_worker<NM, NW, S>(&self, address: S, worker: NW) -> Result<()>
+    pub async fn start_worker<NW, S>(&self, address: S, worker: NW) -> Result<()>
     where
         S: Into<AddressSet>,
-        NM: Message + Send + 'static,
-        NW: Worker<Context = Context, Message = NM>,
+        NW: Worker<Context = Context>,
     {
         let address = address.into();
 
@@ -69,7 +68,7 @@ impl Context {
         let ctx = Context::new(self.rt.clone(), self.sender.clone(), address.clone(), mb);
 
         // Then initialise the worker message relay
-        let sender = relay::build::<NW, NM>(self.rt.as_ref(), worker, ctx);
+        let sender = relay::build::<NW>(self.rt.as_ref(), worker, ctx);
 
         let msg = NodeMessage::start_worker(address, sender);
         let _result: Result<()> = match self.sender.send(msg).await {
