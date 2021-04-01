@@ -95,15 +95,27 @@ where
     /// Convenience function to handle an incoming direct message
     #[inline]
     fn handle_direct(&mut self, msg: TransportMessage) -> Result<(M, Route)> {
-        M::decode(&msg.payload)
-            .map_err(|e| {
-                error!(
-                    "Failed to decode message payload for worker {}",
-                    self.ctx.address()
-                );
-                e.into()
-            })
-            .map(|m| (m, msg.return_.clone()))
+        // This condition applies when the Worker is waiting for a
+        // TransportMessage.  We serialize, then deserialize the
+        // TransportMessage again to make rustc understand that M ==
+        // TransportMessage.
+        //
+        // FIXME: remove this redundancy!
+        if dbg!(self.ctx.peeling()) {
+            M::decode(&msg.payload)
+                .map_err(|e| {
+                    error!(
+                        "Failed to decode message payload for worker {}",
+                        self.ctx.address()
+                    );
+                    e.into()
+                })
+                .map(|m| (m, msg.return_.clone()))
+        } else {
+            println!("Running new code point...");
+            let enc = msg.encode().unwrap();
+            M::decode(&enc).map(|m| (m, msg.return_.clone()))
+        }
     }
 
     #[inline]
