@@ -38,12 +38,12 @@ pub type ContactsDb = HashMap<ProfileIdentifier, Contact>;
 /// ```
 /// # use ockam_vault::SoftwareVault;
 /// # use std::sync::{Mutex, Arc};
-/// # use ockam::{Profile, KeyAttributes};
+/// # use ockam::{VaultedProfile, KeyAttributes};
 /// let vault = Arc::new(Mutex::new(SoftwareVault::default()));
-/// let mut profile = Profile::create(None, vault)?;
+/// let mut profile = VaultedProfile::create(None, vault)?;
 ///
 /// let root_key_attributes = KeyAttributes::new(
-///     Profile::PROFILE_UPDATE.to_string(),
+///     VaultedProfile::PROFILE_UPDATE.to_string(),
 /// );
 ///
 /// let _alice_root_secret = profile.get_secret_key(&root_key_attributes)?;
@@ -69,12 +69,12 @@ pub type ContactsDb = HashMap<ProfileIdentifier, Contact>;
 /// ```
 /// # use std::sync::{Arc, Mutex};
 /// # use ockam_vault::SoftwareVault;
-/// # use ockam::Profile;
+/// # use ockam::VaultedProfile;
 /// fn alice_main() -> ockam_core::Result<()> {
 ///     let vault = Arc::new(Mutex::new(SoftwareVault::default()));
 ///
 ///     // Alice generates profile
-///     let alice = Profile::create(None, vault)?;
+///     let alice = VaultedProfile::create(None, vault)?;
 ///
 ///     // Key agreement happens here
 ///     let key_agreement_hash = [0u8; 32];
@@ -90,14 +90,14 @@ pub type ContactsDb = HashMap<ProfileIdentifier, Contact>;
 ///     let vault = Arc::new(Mutex::new(SoftwareVault::default()));
 ///
 ///     // Bob generates profile
-///     let mut bob = Profile::create(None, vault)?;
+///     let mut bob = VaultedProfile::create(None, vault)?;
 ///
 ///     // Key agreement happens here
 ///     let key_agreement_hash = [0u8; 32];
 ///
 ///     // Receive this from Alice over the network
 ///     # let contact_alice = [0u8; 32];
-///     let contact_alice = Profile::deserialize_contact(&contact_alice)?;
+///     let contact_alice = VaultedProfile::deserialize_contact(&contact_alice)?;
 ///     let alice_id = contact_alice.identifier().clone();
 ///
 ///     // Bob adds Alice to contact list
@@ -115,46 +115,46 @@ pub type ContactsDb = HashMap<ProfileIdentifier, Contact>;
 /// ```
 /// # use std::sync::{Arc, Mutex};
 /// # use ockam_vault::SoftwareVault;
-/// # use ockam::Profile;
+/// # use ockam::VaultedProfile;
 /// fn alice_main() -> ockam_core::Result<()> {
 ///     # let vault = Arc::new(Mutex::new(SoftwareVault::default()));
-///     # let mut alice = Profile::create(None, vault)?;
+///     # let mut alice = VaultedProfile::create(None, vault)?;
 ///     # let key_agreement_hash = [0u8; 32];
 ///     # let contact_alice = alice.serialize_to_contact()?;
 ///     #
 ///     let index_a = alice.change_events().len();
-///     alice.rotate_key(Profile::PROFILE_UPDATE.into(), None)?;
+///     alice.rotate_key(VaultedProfile::PROFILE_UPDATE.into(), None)?;
 ///
 ///     // Send to Bob
 ///     let change_events = &alice.change_events()[index_a..];
-///     let change_events = Profile::serialize_change_events(change_events)?;
+///     let change_events = VaultedProfile::serialize_change_events(change_events)?;
 ///
 ///     Ok(())
 /// }
 ///
 /// fn bob_main() -> ockam_core::Result<()> {
 ///     # let vault = Arc::new(Mutex::new(SoftwareVault::default()));
-///     # let mut bob = Profile::create(None, vault)?;
+///     # let mut bob = VaultedProfile::create(None, vault)?;
 ///     # let key_agreement_hash = [0u8; 32];
 ///     # let contact_alice = [0u8; 32];
-///     # let contact_alice = Profile::deserialize_contact(&contact_alice)?;
+///     # let contact_alice = VaultedProfile::deserialize_contact(&contact_alice)?;
 ///     # let alice_id = contact_alice.identifier().clone();
 ///     # bob.verify_and_add_contact(contact_alice)?;
 ///     // Receive from Alice
 ///     # let change_events = [0u8; 32];
-///     let change_events = Profile::deserialize_change_events(&change_events)?;
+///     let change_events = VaultedProfile::deserialize_change_events(&change_events)?;
 ///     bob.verify_and_update_contact(&alice_id, change_events)
 /// }
 /// ```
 #[derive(Clone)]
-pub struct Profile {
+pub struct VaultedProfile {
     identifier: ProfileIdentifier,
     change_history: ProfileChangeHistory,
     contacts: ContactsDb,
     vault: Arc<Mutex<dyn ProfileVault>>,
 }
 
-impl Profile {
+impl VaultedProfile {
     /// Sha256 of that value is used as previous event id for first event in a [`Profile`]
     pub const NO_EVENT: &'static [u8] = "OCKAM_NO_EVENT".as_bytes();
     /// Label for [`Profile`] update key
@@ -165,7 +165,7 @@ impl Profile {
     pub const CURRENT_CHANGE_VERSION: u8 = 1;
 }
 
-impl Profile {
+impl VaultedProfile {
     /// Return unique [`Profile`] identifier, which is equal to sha256 of the root public key
     pub fn identifier(&self) -> &ProfileIdentifier {
         &self.identifier
@@ -180,7 +180,7 @@ impl Profile {
     }
 }
 
-impl Profile {
+impl VaultedProfile {
     pub fn new(
         identifier: ProfileIdentifier,
         change_events: Vec<ProfileChangeEvent>,
@@ -198,17 +198,17 @@ impl Profile {
     }
 }
 
-impl Profile {
+impl VaultedProfile {
     /// Generate fresh [`Profile`] update key key and create new [`Profile`] using it
     pub fn create(
         attributes: Option<ProfileEventAttributes>,
         vault: Arc<Mutex<dyn ProfileVault>>,
     ) -> ockam_core::Result<Self> {
         let mut v = vault.lock().unwrap();
-        let prev_id = v.sha256(Profile::NO_EVENT)?;
+        let prev_id = v.sha256(VaultedProfile::NO_EVENT)?;
         let prev_id = EventIdentifier::from_hash(prev_id);
 
-        let key_attributes = KeyAttributes::new(Profile::PROFILE_UPDATE.to_string());
+        let key_attributes = KeyAttributes::new(VaultedProfile::PROFILE_UPDATE.to_string());
         let change_event = Self::create_key_event_static(
             prev_id,
             key_attributes.clone(),
@@ -224,7 +224,7 @@ impl Profile {
         let public_kid = v.compute_key_id_for_public_key(&public_key)?;
         let public_kid = ProfileIdentifier::from_key_id(public_kid);
 
-        let profile = Profile::new(
+        let profile = VaultedProfile::new(
             public_kid,
             vec![change_event],
             Default::default(),
@@ -280,7 +280,7 @@ impl Profile {
     }
 }
 
-impl Profile {
+impl VaultedProfile {
     fn update_no_verification(
         &mut self,
         change_event: ProfileChangeEvent,
@@ -314,7 +314,7 @@ impl Profile {
     }
 }
 
-impl Profile {
+impl VaultedProfile {
     pub(crate) fn get_root_secret(&self, vault: &dyn ProfileVault) -> ockam_core::Result<Secret> {
         let public_key =
             ProfileChangeHistory::get_current_profile_update_public_key(self.change_events())?;
@@ -337,7 +337,7 @@ impl Profile {
 }
 
 // Contacts
-impl Profile {
+impl VaultedProfile {
     /// Convert [`Profile`] to [`Contact`]
     pub fn to_contact(&self) -> Contact {
         Contact::new(
@@ -350,7 +350,7 @@ impl Profile {
     pub fn serialize_to_contact(&self) -> ockam_core::Result<Vec<u8>> {
         let contact = self.to_contact();
 
-        Profile::serialize_contact(&contact)
+        VaultedProfile::serialize_contact(&contact)
     }
 
     /// Serialize [`Contact`] in binary form for storing/transferring over the network
@@ -420,7 +420,7 @@ impl Profile {
 }
 
 // Authentication
-impl Profile {
+impl VaultedProfile {
     /// Generate Proof of possession of [`Profile`].
     /// channel_state should be tied to channel's cryptographical material (e.g. h value for Noise XX)
     pub fn generate_authentication_proof(
@@ -465,11 +465,11 @@ mod test {
     #[test]
     fn test_new() {
         let vault = Arc::new(Mutex::new(SoftwareVault::default()));
-        let mut profile = Profile::create(None, vault).unwrap();
+        let mut profile = VaultedProfile::create(None, vault).unwrap();
 
         profile.verify().unwrap();
 
-        let root_key_attributes = KeyAttributes::new(Profile::PROFILE_UPDATE.to_string());
+        let root_key_attributes = KeyAttributes::new(VaultedProfile::PROFILE_UPDATE.to_string());
 
         let _alice_root_secret = profile.get_secret_key(&root_key_attributes).unwrap();
         let _alice_root_public_key = profile.get_public_key(&root_key_attributes).unwrap();
@@ -507,27 +507,27 @@ mod test {
     #[test]
     fn test_update() {
         let vault = Arc::new(Mutex::new(SoftwareVault::default()));
-        let mut alice = Profile::create(None, vault.clone()).unwrap();
+        let mut alice = VaultedProfile::create(None, vault.clone()).unwrap();
 
-        let mut bob = Profile::create(None, vault).unwrap();
+        let mut bob = VaultedProfile::create(None, vault).unwrap();
 
         // Receive this from Alice over the network
         let contact_alice = alice.serialize_to_contact().unwrap();
-        let contact_alice = Profile::deserialize_contact(&contact_alice).unwrap();
+        let contact_alice = VaultedProfile::deserialize_contact(&contact_alice).unwrap();
         let alice_id = contact_alice.identifier().clone();
         // Bob adds Alice to contact list
         bob.verify_and_add_contact(contact_alice).unwrap();
 
         alice
-            .rotate_key(Profile::PROFILE_UPDATE.into(), None)
+            .rotate_key(VaultedProfile::PROFILE_UPDATE.into(), None)
             .unwrap();
 
         let index_a = alice.change_events().len();
         let change_events = &alice.change_events()[index_a..];
-        let change_events = Profile::serialize_change_events(change_events).unwrap();
+        let change_events = VaultedProfile::serialize_change_events(change_events).unwrap();
 
         // Receive from Alice
-        let change_events = Profile::deserialize_change_events(&change_events).unwrap();
+        let change_events = VaultedProfile::deserialize_change_events(&change_events).unwrap();
         bob.verify_and_update_contact(&alice_id, change_events)
             .unwrap();
     }

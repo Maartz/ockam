@@ -36,3 +36,5 @@ pub use signer::*;
 pub use symmetric_vault::*;
 pub use types::*;
 pub use verifier::*;
+
+pub trait CompositeVault: AsymmetricVault + SecretVault + SymmetricVault {}

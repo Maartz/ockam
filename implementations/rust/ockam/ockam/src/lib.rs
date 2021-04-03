@@ -24,15 +24,16 @@ pub use ockam_node_no_std::*;
 
 // ---
 
-mod profile;
-pub use profile::*;
-mod error;
-pub use error::*;
 mod credential;
+mod entity;
+mod error;
 mod lease;
+mod old_profile;
 
 pub use credential::*;
+pub use error::*;
 pub use lease::*;
+pub use old_profile::*;
 
 mod remote_mailbox;
 pub use remote_mailbox::*;

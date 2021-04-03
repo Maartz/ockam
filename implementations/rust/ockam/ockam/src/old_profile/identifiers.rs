@@ -2,7 +2,7 @@ use ockam_core::hex::encode;
 use ockam_vault_core::KeyId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct ProfileIdentifier(KeyId);
 
 /// Unique [`crate::Profile`] identifier, computed as SHA256 of root public key
@@ -13,6 +13,12 @@ impl ProfileIdentifier {
     /// Human-readable form of the id
     pub fn to_string_representation(&self) -> String {
         format!("P_ID.{}", &self.0)
+    }
+}
+
+impl From<&str> for ProfileIdentifier {
+    fn from(s: &str) -> Self {
+        ProfileIdentifier::from_key_id(s.to_string())
     }
 }
 

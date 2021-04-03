@@ -70,6 +70,10 @@ impl Zeroize for SoftwareVault {
 
 zdrop_impl!(SoftwareVault);
 
+use ockam_vault_core::CompositeVault;
+
+impl CompositeVault for SoftwareVault {}
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct VaultEntry {
     key_id: Option<String>,
