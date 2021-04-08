@@ -7,7 +7,7 @@
 //! The main Ockam crate re-exports types defined in this crate.
 #![no_std]
 #![deny(
-    missing_docs,
+    // missing_docs,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
@@ -38,11 +38,13 @@ pub extern crate async_trait;
 mod error;
 mod message;
 mod routing;
+mod runner;
 mod worker;
 
 pub use error::*;
 pub use message::*;
 pub use routing::*;
+pub use runner::*;
 pub use worker::*;
 
 /// A facade around the various collections and primitives needed
